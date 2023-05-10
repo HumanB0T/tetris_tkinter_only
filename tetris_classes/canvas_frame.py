@@ -3,8 +3,6 @@ from PIL import Image, ImageTk
 from tetris_classes.tetrimino_classes import Tetrimino, ITetrimino
 
 
-
-
 class Tetris(tk.Canvas):
 
     def __init__(self):
@@ -17,12 +15,18 @@ class Tetris(tk.Canvas):
         self.perform_actions()
 
     def perform_actions(self):
-        print(self.current_tetrimino.get_most_left_x())
-        self.current_tetrimino.move(self)
+        if self.current_tetrimino.check_collision():
+            for xy in self.current_tetrimino.current_coords:
+                Tetrimino.collided_area.append(xy)
+                self.current_tetrimino.clear_floor()
+            self.current_tetrimino = Tetrimino.generate_random_tetrimino(self)
+        self.current_tetrimino.move_block(self)
 
     def create_graphics(self, coords):
         tetris_brick = Image.open("graphics/tetrimino_pixel.png")
         self.image = ImageTk.PhotoImage(tetris_brick)
+        for position in Tetrimino.collided_area:
+            self.create_image(*position, image=self.image)
         for position in coords:
             self.create_image(*position, image=self.image)
 
@@ -31,6 +35,11 @@ class Tetris(tk.Canvas):
         possible_directions = ("Left", "Right", "Up")
         if pressed_key in possible_directions:
             self.direction = pressed_key
+
+    def collision_mechanic(self):
+        pass
+
+
 
 
 
