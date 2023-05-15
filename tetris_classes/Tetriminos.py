@@ -1,5 +1,5 @@
 import random
-
+from PIL import Image
 # Settings
 PIXEL_SIZE = 20               # Do not change it
 SIDE_WAYS_HOW_MANY_TIMES = 4  # How many times you can move tetrimino in sideways before it move down
@@ -8,6 +8,7 @@ SPEED = 150                   # In milliseconds. The higher the amount the move 
 
 class Tetrimino:
     collided_area = []
+    terrain = Image.open("graphics/Terrain.png")
 
     def __init__(self, game_window):
         self.game_window = game_window
@@ -17,6 +18,7 @@ class Tetrimino:
         self.horizontal_middle_statement = ""
         self.speed = SPEED
         self.is_accelerated_flag = False
+        self.possible_directions = ("Left", "Right", "Up", "Down")
 
     def __len__(self):
         return len(self.current_coords)
@@ -26,8 +28,9 @@ class Tetrimino:
 
         if not self.is_accelerated_flag:
             if game_window.direction == "Down":
-                self.is_accelerated_flag = True
                 self.speed = 20
+                self.possible_directions = ("Left", "Right", "Up")
+                self.is_accelerated_flag = True
 
         if game_window.direction == "moving_down":
             self.current_coords = list(map(lambda xy: (xy[0], xy[1] + PIXEL_SIZE), self.current_coords))
@@ -51,10 +54,18 @@ class Tetrimino:
         return list(map(lambda xy: (xy[0] + PIXEL_SIZE, xy[1]), self.current_coords))
 
     def count_sideways_moving(self, game_window):
+
+        if self.get_most_left_x() < 50 and game_window.direction == "Left":
+            self.moving_sideways_counter = SIDE_WAYS_HOW_MANY_TIMES - 1
+        elif self.get_most_right_x() > 570 and game_window.direction == "Right":
+            self.moving_sideways_counter = SIDE_WAYS_HOW_MANY_TIMES - 1
+        elif (self.get_most_left_x() < 50 or self.get_most_right_x() > 570) and game_window.direction == "Up":
+            self.moving_sideways_counter = SIDE_WAYS_HOW_MANY_TIMES - 1
+
         if game_window.direction in ("Left", "Right", "Up"):
             self.moving_sideways_counter += 1
 
-        if self.moving_sideways_counter > SIDE_WAYS_HOW_MANY_TIMES:
+        if self.moving_sideways_counter == SIDE_WAYS_HOW_MANY_TIMES:
             self.moving_sideways_counter = 0
             game_window.direction = "moving_down"
 
@@ -114,18 +125,19 @@ class Tetrimino:
             existing_y_floor_coords = set(existing_y_floor_coords)
             new_floors = list(collided_area ^ existing_y_floor_coords)
             Tetrimino.collided_area = [(coord[0], coord[1]) if coord[1] > y
-                                           else (coord[0], coord[1]+20)
-                                           for coord in new_floors]
+                                       else (coord[0], coord[1]+20)
+                                       for coord in new_floors]
 
     @staticmethod
     def check_if_lost():
         if len(Tetrimino.collided_area):
-            if min([coord[1] for coord in Tetrimino.collided_area]) <= 100:
+            if min([coord[1] for coord in Tetrimino.collided_area]) <= 80:
                 return True
 
     @staticmethod
     def generate_random_tetrimino(game_window):
-        chosen_tetrimino = random.choice([L1Tetrimino])
+        chosen_tetrimino = random.choice([ITetrimino, L1Tetrimino, L2Tetrimino, SRightTetrimino,
+                                          SLeftTetrimino, TTetrimino, RockTetrimino])
         return chosen_tetrimino(game_window)
 
 
@@ -135,10 +147,16 @@ class ITetrimino(Tetrimino):
         super().__init__(game_window)
         # starting coords defined below
         self.current_coords = [[300, 20], [300, 40], [300, 60], [300, 80]]
+        self.next_display_coords = [[655, 100], [655, 120], [655, 140], [655, 160]]
         self.perspective = "vertical"
         self.horizontal_middle_statement = "first_middle"
+        self.image = Image.open("graphics/ITetrimino.png")
 
     def move_block(self, game_window):
+        # This is to prevent rotating out of the lower edge
+        if self.get_most_down_y() > 750 and game_window.direction == "Up":
+            game_window.direction = "moving_down"
+
         if game_window.direction == "Up":
             if self.perspective == "vertical":
                 self.rotate_to_horizontal()
@@ -186,10 +204,12 @@ class TTetrimino(Tetrimino):
         super().__init__(game_window)
         # starting coords defined below
         self.current_coords = [[280, 40], [300, 40], [320, 40], [300, 20]]
+        self.next_display_coords = [[635, 120], [655, 120], [675, 120], [655, 100]]
         self.rotation_state = "First"
+        self.image = Image.open("graphics/TTetrimino.png")
 
     def move_block(self, game_window):
-        if game_window.direction == "Up":
+        if self.get_most_left_x() > 40 and self.get_most_right_x() < 580 and game_window.direction == "Up":
             if self.rotation_state == "First":
                 self.current_coords[0] = [self.current_coords[0][0] + 20, self.current_coords[0][1] + 20]
                 self.rotation_state = "Second"
@@ -213,11 +233,12 @@ class L1Tetrimino(Tetrimino):
     def __init__(self, game_window):
         super().__init__(game_window)
         self.current_coords = [[280, 40], [300, 40], [320, 40], [320, 60]]
+        self.next_display_coords = [[635, 100], [655, 100], [675, 100], [675, 120]]
         self.rotation_state = "First"
-        self.if_rotated_previously_flag = False
+        self.image = Image.open("graphics/L1Tetrimino.png")
 
     def move_block(self, game_window):
-        if game_window.direction == "Up":
+        if self.get_most_left_x() > 40 and self.get_most_right_x() < 580 and game_window.direction == "Up":
             if self.rotation_state == "First":
                 self.current_coords[0] = [self.current_coords[0][0], self.current_coords[0][1] + 20]
                 self.current_coords[2] = [self.current_coords[2][0] - 20, self.current_coords[2][1] - 20]
@@ -234,11 +255,105 @@ class L1Tetrimino(Tetrimino):
                 self.current_coords[3] = [self.current_coords[3][0], self.current_coords[3][1] - 20]
                 self.rotation_state = "Fourth"
             elif self.rotation_state == "Fourth":
-                # I finished here
-                pass
+                self.current_coords[0] = [self.current_coords[0][0] - 20, self.current_coords[0][1] - 20]
+                self.current_coords[2] = [self.current_coords[2][0] + 20, self.current_coords[2][1] + 20]
+                self.current_coords[3] = [self.current_coords[3][0], self.current_coords[3][1] + 40]
                 self.rotation_state = "First"
 
         super().move_block(game_window)
+
+
+class L2Tetrimino(Tetrimino):
+
+    def __init__(self, game_window):
+        super().__init__(game_window)
+        self.current_coords = [[280, 40], [300, 40], [320, 40], [280, 60]]
+        self.next_display_coords = [[635, 100], [655, 100], [675, 100], [635, 120]]
+        self.rotation_state = "First"
+        self.image = Image.open("graphics/L2Tetrimino.png")
+
+    def move_block(self, game_window):
+        if self.get_most_left_x() > 40 and self.get_most_right_x() < 580 and game_window.direction == "Up":
+            if self.rotation_state == "First":
+                self.current_coords[0] = [self.current_coords[0][0] + 20, self.current_coords[0][1] + 20]
+                self.current_coords[2] = [self.current_coords[2][0] - 20, self.current_coords[2][1] - 20]
+                self.current_coords[3] = [self.current_coords[3][0], self.current_coords[3][1] - 40]
+                self.rotation_state = "Second"
+            elif self.rotation_state == "Second":
+                self.current_coords[0] = [self.current_coords[0][0] - 20, self.current_coords[0][1] - 20]
+                self.current_coords[2] = [self.current_coords[2][0] + 20, self.current_coords[2][1] + 20]
+                self.current_coords[3] = [self.current_coords[3][0] + 40, self.current_coords[3][1]]
+                self.rotation_state = "Third"
+            elif self.rotation_state == "Third":
+                self.current_coords[0] = [self.current_coords[0][0] + 20, self.current_coords[0][1] - 20]
+                self.current_coords[2] = [self.current_coords[2][0] - 20, self.current_coords[2][1] + 20]
+                self.current_coords[3] = [self.current_coords[3][0], self.current_coords[3][1] + 40]
+                self.rotation_state = "Fourth"
+            elif self.rotation_state == "Fourth":
+                self.current_coords[0] = [self.current_coords[0][0] - 20, self.current_coords[0][1] + 20]
+                self.current_coords[2] = [self.current_coords[2][0] + 20, self.current_coords[2][1] - 20]
+                self.current_coords[3] = [self.current_coords[3][0] - 40, self.current_coords[3][1]]
+                self.rotation_state = "First"
+
+        super().move_block(game_window)
+
+
+class RockTetrimino(Tetrimino):
+
+    def __init__(self, game_window):
+        super().__init__(game_window)
+        self.current_coords = [[300, 40], [320, 40], [300, 60], [320, 60]]
+        self.next_display_coords = [[645, 100], [665, 100], [645, 120], [665, 120]]
+        self.possible_directions = ("Left", "Right", "Down")
+        self.image = Image.open("graphics/RockTetrimino.png")
+
+    def move_block(self, game_window):
+        super().move_block(game_window)
+
+
+class SRightTetrimino(Tetrimino):
+
+    def __init__(self, game_window):
+        super().__init__(game_window)
+        self.current_coords = [[280, 40], [300, 40], [300, 20], [320, 20]]
+        self.next_display_coords = [[635, 120], [655, 120], [655, 100], [675, 100]]
+        self.rotation_state = "First"
+        self.image = Image.open("graphics/SRightTetrimino.png")
+
+    def move_block(self, game_window):
+        if self.get_most_left_x() > 40 and self.get_most_right_x() < 580 and game_window.direction == "Up":
+            if self.rotation_state == "First":
+                self.current_coords[0] = [self.current_coords[0][0] + 20, self.current_coords[0][1] - 40]
+                self.current_coords[1] = [self.current_coords[1][0] + 20, self.current_coords[1][1]]
+                self.rotation_state = "Second"
+            elif self.rotation_state == "Second":
+                self.current_coords[0] = [self.current_coords[0][0] - 20, self.current_coords[0][1] + 40]
+                self.current_coords[1] = [self.current_coords[1][0] - 20, self.current_coords[1][1]]
+                self.rotation_state = "First"
+        super().move_block(game_window)
+
+
+class SLeftTetrimino(Tetrimino):
+
+    def __init__(self, game_window):
+        super().__init__(game_window)
+        self.current_coords = [[280, 20], [300, 40], [300, 20], [320, 40]]
+        self.next_display_coords = [[635, 100], [655, 120], [655, 100], [675, 120]]
+        self.rotation_state = "First"
+        self.image = Image.open("graphics/SLeftTetrimino.png")
+
+    def move_block(self, game_window):
+        if self.get_most_left_x() > 40 and self.get_most_right_x() < 580 and game_window.direction == "Up":
+            if self.rotation_state == "First":
+                self.current_coords[0] = [self.current_coords[0][0] + 40, self.current_coords[0][1] - 20]
+                self.current_coords[3] = [self.current_coords[3][0], self.current_coords[3][1] - 20]
+                self.rotation_state = "Second"
+            elif self.rotation_state == "Second":
+                self.current_coords[0] = [self.current_coords[0][0] - 40, self.current_coords[0][1] + 20]
+                self.current_coords[3] = [self.current_coords[3][0], self.current_coords[3][1] + 20]
+                self.rotation_state = "First"
+        super().move_block(game_window)
+
 
 
 
